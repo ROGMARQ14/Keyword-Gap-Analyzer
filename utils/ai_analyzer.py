@@ -6,7 +6,6 @@ import pandas as pd
 from typing import Dict, Any
 import toml
 
-
 class AIAnalyzer:
     """Handles AI-powered analysis using OpenAI, Anthropic, and Gemini APIs."""
     
@@ -56,57 +55,53 @@ class AIAnalyzer:
         prompt = self._create_analysis_prompt(analysis_data)
         
         try:
-            if model == "openai":
+            if model == "openai" and openai.api_key:
                 return self._openai_analysis(prompt)
-            elif model == "anthropic":
+            elif model == "anthropic" and self.anthropic_client:
                 return self._anthropic_analysis(prompt)
-            elif model == "gemini":
+            elif model == "gemini" and self.gemini_model:
                 return self._gemini_analysis(prompt)
             else:
-                return "Invalid model selected"
+                return "AI model not configured or available."
+                
         except Exception as e:
             return f"Error generating insights: {str(e)}"
     
     def _create_analysis_prompt(self, data: Dict[str, Any]) -> str:
-        """Create comprehensive prompt for AI analysis."""
+        """Create comprehensive analysis prompt."""
         
         prompt = f"""
-        You are an expert SEO strategist analyzing keyword gap data between a client and their competitor.
+        You are an expert SEO strategist analyzing keyword gap data. 
         
         CLIENT PERFORMANCE:
-        - Total Keywords: {data['client_total_keywords']}
+        - Total Keywords: {data['client_total_keywords']:,}
         - Average Position: {data['client_avg_position']:.1f}
         - Total Traffic: {data['client_total_traffic']:,}
         - Traffic Value: ${data['client_traffic_cost']:,}
         
         COMPETITOR PERFORMANCE:
-        - Total Keywords: {data['competitor_total_keywords']}
+        - Total Keywords: {data['competitor_total_keywords']:,}
         - Average Position: {data['competitor_avg_position']:.1f}
         - Total Traffic: {data['competitor_total_traffic']:,}
         - Traffic Value: ${data['competitor_traffic_cost']:,}
         
-        KEY OPPORTUNITIES:
-        
-        Quick Wins (Client ranks 6-10, competitor 1-5):
+        QUICK WINS (Client ranks 6-10, Competitor ranks 1-5):
         {len(data['quick_wins'])} opportunities identified
         
-        Steal Opportunities (Client not ranking, competitor 1-5):
+        STEAL OPPORTUNITIES (Competitor ranks 1-5, Client absent/poor):
         {len(data['steal_opportunities'])} opportunities identified
         
-        Defensive Keywords (Client 1-5, competitor close):
-        {len(data['defensive_keywords'])} keywords to protect
+        DEFENSIVE KEYWORDS (Client ranks 1-5, Competitor close):
+        {len(data['defensive_keywords'])} keywords to defend
         
-        PROVIDE A COMPREHENSIVE STRATEGIC ANALYSIS INCLUDING:
+        Provide a comprehensive strategic analysis including:
         
-        1. **Executive Summary** (2-3 sentences)
-        2. **Immediate Actions** (next 30 days)
-        3. **Medium-term Strategy** (next 3 months)
-        4. **Long-term Investment** (6-12 months)
-        5. **Resource Allocation** recommendations
-        6. **ROI Projections** for each opportunity type
-        7. **Content Strategy** recommendations
-        8. **Technical SEO** priorities
-        9. **Competitive Response** strategy
+        1. **Executive Summary** - Key insights and market position
+        2. **Immediate Actions** - Top 5 priorities for next 30 days
+        3. **Medium-term Strategy** - 3-month content and optimization plan
+        4. **Long-term Investment** - 6-12 month strategic initiatives
+        5. **Resource Allocation** - Budget and team recommendations
+        6. **Risk Assessment** - Competitive threats and mitigation strategies
         
         Format as a professional report with clear sections and actionable recommendations.
         """
@@ -114,47 +109,32 @@ class AIAnalyzer:
         return prompt
     
     def _openai_analysis(self, prompt: str) -> str:
-        """Generate analysis using OpenAI GPT."""
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are an expert SEO strategist."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=2000,
-                temperature=0.7
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"OpenAI Error: {str(e)}"
+        """Generate analysis using OpenAI GPT-4."""
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an expert SEO strategist."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.7
+        )
+        return response.choices[0].message.content
     
     def _anthropic_analysis(self, prompt: str) -> str:
         """Generate analysis using Anthropic Claude."""
-        if not self.anthropic_client:
-            return "Anthropic client not configured"
-        
-        try:
-            response = self.anthropic_client.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=2000,
-                temperature=0.7,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.content[0].text
-        except Exception as e:
-            return f"Anthropic Error: {str(e)}"
+        response = self.anthropic_client.messages.create(
+            model="claude-3-sonnet-20240229",
+            max_tokens=2000,
+            temperature=0.7,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text
     
     def _gemini_analysis(self, prompt: str) -> str:
         """Generate analysis using Google Gemini."""
-        if not self.gemini_model:
-            return "Gemini client not configured"
-        
-        try:
-            response = self.gemini_model.generate_content(prompt)
-            return response.text
-        except Exception as e:
-            return f"Gemini Error: {str(e)}"
+        response = self.gemini_model.generate_content(prompt)
+        return response.text
     
     def is_configured(self, model: str) -> bool:
         """Check if specified model is configured."""
