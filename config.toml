@@ -1,0 +1,20 @@
+[api_keys]
+openai_api_key = ""
+anthropic_api_key = ""
+gemini_api_key = ""
+
+[analysis]
+default_model = "openai"
+confidence_threshold = 0.8
+min_search_volume = 100
+max_keyword_difficulty = 70
+
+[visualization]
+color_scheme = "plotly"
+chart_height = 600
+table_rows_per_page = 50
+
+[strategy]
+quick_win_threshold = 10
+defensive_threshold = 5
+long_term_threshold = 50
