@@ -77,7 +77,7 @@ if client_file and competitor_file:
         with col3:
             st.metric("Market Share", f"{summary['market_share']['client']:.1f}%")
         
-        # Tabs
+        # Tabs with tooltips
         tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🎯 Opportunities", "🏆 Wins", "🤖 AI Insights"])
         
         with tab1:
@@ -103,62 +103,82 @@ if client_file and competitor_file:
         with tab2:
             st.header("Strategic Opportunities")
             
+            # Tooltips for opportunities
+            st.info("""
+            **📊 Opportunity Definitions:**
+            - **🚀 Quick Wins**: Keywords where you rank 6-10 and competitor ranks 1-5. Easy to improve with content optimization.
+            - **🔥 Steal Opportunities**: Keywords where competitor ranks 1-5 and you're not ranking (11+). High-value targets for new content.
+            - **🛡️ Defensive Keywords**: Keywords where you rank 1-5 but competitor is close behind. Protect your current rankings.
+            """)
+            
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("🚀 Quick Wins")
+                st.caption("Easy improvements - optimize existing content")
                 if not quick_wins.empty:
                     st.dataframe(quick_wins.head(10))
+                    st.metric("Total Quick Wins", len(quick_wins))
                 else:
                     st.info("No quick wins found")
                 
                 st.subheader("🛡️ Defensive Keywords")
+                st.caption("Protect your rankings - monitor closely")
                 if not defensive.empty:
                     st.dataframe(defensive.head(10))
+                    st.metric("Keywords to Defend", len(defensive))
                 else:
                     st.info("No defensive keywords found")
             
             with col2:
                 st.subheader("🔥 Steal Opportunities")
+                st.caption("High-value targets - create new content")
                 if not steal_ops.empty:
                     st.dataframe(steal_ops.head(10))
+                    st.metric("Steal Opportunities", len(steal_ops))
                 else:
                     st.info("No steal opportunities found")
         
         with tab3:
             st.header("Client Wins")
+            st.caption("Keywords where you outperform your competitor")
             if not client_wins.empty:
                 st.dataframe(client_wins.head(20))
+                st.metric("Total Client Wins", len(client_wins))
             else:
                 st.info("No client wins found")
         
         with tab4:
             st.header("AI Strategic Insights")
-            if selected_model and st.button("Generate AI Insights", type="primary"):
-                analysis_data = {
-                    'client_total_keywords': summary['client']['total_keywords'],
-                    'client_avg_position': summary['client']['avg_position'],
-                    'client_total_traffic': summary['client']['total_traffic'],
-                    'client_traffic_cost': summary['client']['total_traffic_cost'],
-                    'competitor_total_keywords': summary['competitor']['total_keywords'],
-                    'competitor_avg_position': summary['competitor']['avg_position'],
-                    'competitor_total_traffic': summary['competitor']['total_traffic'],
-                    'competitor_traffic_cost': summary['competitor']['total_traffic_cost'],
-                    'quick_wins': quick_wins.head(10).to_dict('records'),
-                    'steal_opportunities': steal_ops.head(10).to_dict('records'),
-                    'defensive_keywords': defensive.head(10).to_dict('records')
-                }
-                
-                with st.spinner("Generating AI insights..."):
-                    insights = ai_analyzer.generate_insights(analysis_data, selected_model)
-                    st.markdown("### 🤖 AI Strategic Recommendations")
-                    st.markdown(insights)
+            if selected_model:
+                st.info(f"Using {selected_model} for AI-powered analysis")
+                if st.button("Generate AI Insights", type="primary"):
+                    analysis_data = {
+                        'client_total_keywords': summary['client']['total_keywords'],
+                        'client_avg_position': summary['client']['avg_position'],
+                        'client_total_traffic': summary['client']['total_traffic'],
+                        'client_traffic_cost': summary['client']['total_traffic_cost'],
+                        'competitor_total_keywords': summary['competitor']['total_keywords'],
+                        'competitor_avg_position': summary['competitor']['avg_position'],
+                        'competitor_total_traffic': summary['competitor']['total_traffic'],
+                        'competitor_traffic_cost': summary['competitor']['total_traffic_cost'],
+                        'quick_wins': quick_wins.head(10).to_dict('records'),
+                        'steal_opportunities': steal_ops.head(10).to_dict('records'),
+                        'defensive_keywords': defensive.head(10).to_dict('records')
+                    }
                     
-                    st.download_button(
-                        label="Download AI Insights",
-                        data=insights,
-                        file_name="ai_strategic_insights.txt",
-                        mime="text/plain"
-                    )
+                    with st.spinner("Generating AI insights..."):
+                        insights = ai_analyzer.generate_insights(analysis_data, selected_model)
+                        st.markdown("### 🤖 AI Strategic Recommendations")
+                        st.markdown(insights)
+                        
+                        st.download_button(
+                            label="Download AI Insights",
+                            data=insights,
+                            file_name="ai_strategic_insights.txt",
+                            mime="text/plain"
+                        )
+            else:
+                st.warning("No AI models configured. Add API keys to config.toml or .streamlit/secrets.toml")
         
         # Export functionality
         st.header("📥 Export Data")
@@ -196,18 +216,20 @@ if client_file and competitor_file:
             st.download_button("Download Excel Report", output.getvalue(), "keyword_gap_analysis.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 else:
-    # Keep the exact same UI with dropdowns as requested
+    # Welcome screen with tooltips
+    st.info("👋 Welcome to the Keyword Gap Analyzer!")
+    
     with st.expander("📋 How to use this tool", expanded=False):
         st.markdown("""
         ### Step-by-step guide:
         
         1. **Upload CSV/Excel Files**: Upload your client and competitor organic performance reports
-        2. **Configure AI**: Add your API keys to `config.toml` for AI-powered insights
+        2. **Configure AI**: Add your API keys to `config.toml` or `.streamlit/secrets.toml` for AI-powered insights
         3. **Analyze**: Explore opportunities, wins, and strategic recommendations
         4. **Export**: Download your analysis in various formats
         
         ### Supported file formats:
-        - CSV files (.csv)
+        - CSV files (.csv) - supports both comma and semicolon delimiters
         - Excel files (.xlsx, .xls)
         """)
     
@@ -236,8 +258,18 @@ else:
         | Position Type | Type of position |
         """)
     
-    st.info("👋 Welcome to the Keyword Gap Analyzer!")
-    st.markdown("Upload your files using the sidebar to begin the analysis!")
+    with st.expander("🎯 Understanding Opportunities", expanded=False):
+        st.markdown("""
+        ### Opportunity Types Explained:
+        
+        **🚀 Quick Wins**: Keywords where you rank 6-10 and competitor ranks 1-5. These are low-hanging fruit - optimize existing content to quickly improve rankings.
+        
+        **🔥 Steal Opportunities**: Keywords where competitor ranks 1-5 and you're not ranking (11+). These require new content creation but offer high traffic potential.
+        
+        **🛡️ Defensive Keywords**: Keywords where you rank 1-5 but competitor is close behind. Monitor these closely and optimize to maintain your rankings.
+        
+        **🏆 Client Wins**: Keywords where you outperform your competitor. Showcase these successes to demonstrate current SEO strength.
+        """)
 
 # Footer
 st.markdown("---")
