@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import io
 from utils.data_loader import DataLoader
 from core.analyzer import KeywordGapAnalyzer
 from utils.ai_analyzer import AIAnalyzer
@@ -75,7 +76,6 @@ if client_file and competitor_file:
             st.metric(f"{competitor_name} Avg Position", f"{summary['competitor']['avg_position']:.1f}")
         with col3:
             st.metric("Market Share", f"{summary['market_share']['client']:.1f}%")
-            st.metric("Opportunity Score", f"{summary['opportunity_score']:,}")
         
         # Tabs
         tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "🎯 Opportunities", "🏆 Wins", "🤖 AI Insights"])
@@ -196,24 +196,48 @@ if client_file and competitor_file:
             st.download_button("Download Excel Report", output.getvalue(), "keyword_gap_analysis.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 else:
+    # Keep the exact same UI with dropdowns as requested
+    with st.expander("📋 How to use this tool", expanded=False):
+        st.markdown("""
+        ### Step-by-step guide:
+        
+        1. **Upload CSV/Excel Files**: Upload your client and competitor organic performance reports
+        2. **Configure AI**: Add your API keys to `config.toml` for AI-powered insights
+        3. **Analyze**: Explore opportunities, wins, and strategic recommendations
+        4. **Export**: Download your analysis in various formats
+        
+        ### Supported file formats:
+        - CSV files (.csv)
+        - Excel files (.xlsx, .xls)
+        """)
+    
+    with st.expander("📊 Required Columns", expanded=False):
+        st.markdown("""
+        Your files must contain these columns:
+        
+        | Column | Description |
+        |--------|-------------|
+        | Keyword | Search term |
+        | Position | Current ranking position |
+        | Previous position | Previous ranking position |
+        | Search Volume | Monthly search volume |
+        | Keyword Difficulty | SEO difficulty score (0-100) |
+        | CPC | Cost per click |
+        | URL | Ranking URL |
+        | Traffic | Estimated traffic |
+        | Traffic (%) | Traffic percentage |
+        | Traffic Cost | Traffic value in USD |
+        | Competition | Competition level |
+        | Number of Results | Total results |
+        | Trends | Trend indicator |
+        | Timestamp | Data collection date |
+        | SERP Features by Keyword | SERP features present |
+        | Keyword Intents | Search intent |
+        | Position Type | Type of position |
+        """)
+    
     st.info("👋 Welcome to the Keyword Gap Analyzer!")
-    st.markdown("""
-    ### How to use this tool:
-    
-    1. **Upload CSV/Excel Files**: Upload your client and competitor organic performance reports
-    2. **Configure AI**: Add your API keys to `config.toml` for AI-powered insights
-    3. **Analyze**: Explore opportunities, wins, and strategic recommendations
-    4. **Export**: Download your analysis in various formats
-    
-    ### Required Columns:
-    - Keyword, Position, Previous position, Search Volume, Keyword Difficulty
-    - CPC, URL, Traffic, Traffic (%), Traffic Cost, Competition
-    - Number of Results, Trends, Timestamp, SERP Features by Keyword
-    - Keyword Intents, Position Type
-    
-    ### Get Started:
-    Upload your files using the sidebar to begin the analysis!
-    """)
+    st.markdown("Upload your files using the sidebar to begin the analysis!")
 
 # Footer
 st.markdown("---")
