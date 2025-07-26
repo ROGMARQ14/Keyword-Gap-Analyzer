@@ -27,16 +27,17 @@ class AIAnalyzer:
         if not api_keys:
             api_keys = self.config.get("api_keys", {})
         
-        # OpenAI - Safe initialization
+        # OpenAI - Use older initialization method for compatibility
         openai_key = api_keys.get("openai_api_key", "")
         if openai_key and openai_key.strip():
             try:
-                self.openai_client = openai.OpenAI(api_key=openai_key)
+                openai.api_key = openai_key
+                self.openai_client = True
             except Exception as e:
                 st.warning(f"OpenAI initialization failed: {str(e)}")
-                self.openai_client = None
+                self.openai_client = False
         else:
-            self.openai_client = None
+            self.openai_client = False
         
         # Anthropic - Safe initialization
         anthropic_key = api_keys.get("anthropic_api_key", "")
@@ -75,7 +76,7 @@ class AIAnalyzer:
             elif model == "gemini" and self.gemini_model:
                 return self._gemini_analysis(prompt)
             else:
-                return "AI analysis unavailable - API key not configured or initialization failed"
+                return "AI analysis unavailable - API key not configured"
                 
         except Exception as e:
             return f"Error generating insights: {str(e)}"
@@ -135,7 +136,7 @@ class AIAnalyzer:
     
     def _openai_analysis(self, prompt: str) -> str:
         """Generate analysis using OpenAI."""
-        response = self.openai_client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are an expert SEO strategist."},
@@ -164,7 +165,7 @@ class AIAnalyzer:
     def is_configured(self, model: str) -> bool:
         """Check if specified model is configured."""
         if model == "openai":
-            return self.openai_client is not None
+            return self.openai_client
         elif model == "anthropic":
             return self.anthropic_client is not None
         elif model == "gemini":
