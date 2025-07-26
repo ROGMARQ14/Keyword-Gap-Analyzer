@@ -16,44 +16,70 @@ class DataLoader:
     
     @staticmethod
     def load_file(file) -> Optional[pd.DataFrame]:
-        """Load and validate CSV/Excel file with automatic column detection."""
+        """Load and validate CSV/Excel file with automatic delimiter detection."""
         try:
             if file is None:
                 return None
                 
-            # Load file
+            # Load file with automatic delimiter detection
             if file.name.endswith('.csv'):
-                df = pd.read_csv(file, on_bad_lines='skip', engine='python')
+                # Try to detect delimiter
+                import io
+                content = file.read().decode('utf-8')
+                file.seek(0)  # Reset file pointer
+                
+                # Check first line for delimiter
+                first_line = content.split('\n')[0]
+                delimiter = ';' if ';' in first_line else ','
+                
+                df = pd.read_csv(file, sep=delimiter, on_bad_lines='skip', engine='python')
+                
             elif file.name.endswith(('.xlsx', '.xls')):
                 df = pd.read_excel(file)
             else:
                 st.error("Unsupported file format. Please use CSV or Excel files.")
                 return None
             
+            # Clean column names
+            df.columns = df.columns.str.strip()
+            
             # Show detected columns for debugging
+            st.write("✅ **File loaded successfully!**")
             st.write("Detected columns:", list(df.columns))
             
-            # Map columns automatically
-            column_mapping = DataLoader._create_column_mapping(df.columns)
-            st.write("Column mapping:", column_mapping)
+            # Check if we have the exact columns needed
+            exact_match = all(col in df.columns for col in DataLoader.REQUIRED_COLUMNS)
             
-            # Apply mapping
-            df = df.rename(columns=column_mapping)
+            if exact_match:
+                st.success("✅ All required columns found!")
+                df = DataLoader._clean_data(df)
+                return df
             
-            # Check which columns are missing
+            # Try to map columns if exact match fails
+            st.info("🔍 Attempting column mapping...")
+            df = DataLoader._map_columns(df)
+            
+            # Check again
             missing_cols = [col for col in DataLoader.REQUIRED_COLUMNS if col not in df.columns]
             if missing_cols:
-                st.error(f"Missing required columns: {missing_cols}")
-                st.write("Available columns after mapping:", list(df.columns))
+                st.error(f"❌ Missing columns: {missing_cols}")
                 
-                # Show what we found
-                found_cols = [col for col in DataLoader.REQUIRED_COLUMNS if col in df.columns]
-                st.success(f"Found columns: {found_cols}")
+                # Show what's available
+                st.write("Available columns:", list(df.columns))
                 
-                # Create a template for missing columns
-                template_df = pd.DataFrame(columns=DataLoader.REQUIRED_COLUMNS)
-                st.write("Template with all required columns:")
-                st.dataframe(template_df.head())
+                # Create template
+                template = DataLoader.create_template()
+                st.write("📋 **Template with exact column names:**")
+                st.dataframe(template.head(1))
+                
+                # Provide download
+                csv = template.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Template CSV",
+                    data=csv,
+                    file_name="keyword_gap_template.csv",
+                    mime="text/csv"
+                )
                 
                 return None
             
@@ -62,67 +88,25 @@ class DataLoader:
             return df
             
         except Exception as e:
-            st.error(f"Error loading file: {str(e)}")
+            st.error(f"❌ Error loading file: {str(e)}")
+            st.info("💡 **Tip:** Make sure your CSV uses either commas (,) or semicolons (;) as delimiters.")
             return None
     
     @staticmethod
-    def _create_column_mapping(original_columns):
-        """Create mapping from original columns to standard names."""
-        mapping = {}
-        original_lower = [col.lower().strip() for col in original_columns]
+    def _map_columns(df: pd.DataFrame) -> pd.DataFrame:
+        """Map columns to standard names."""
+        # Clean column names
+        df.columns = df.columns.str.strip()
         
-        # Direct mapping
-        for standard in DataLoader.REQUIRED_COLUMNS:
-            standard_lower = standard.lower().strip()
-            for i, orig in enumerate(original_columns):
-                if orig.lower().strip() == standard_lower:
-                    mapping[orig] = standard
+        # Direct mapping (case-insensitive)
+        column_mapping = {}
+        for col in df.columns:
+            for standard in DataLoader.REQUIRED_COLUMNS:
+                if col.lower() == standard.lower():
+                    column_mapping[col] = standard
                     break
         
-        # Fuzzy mapping for common variations
-        fuzzy_mappings = {
-            'keyword': 'Keyword',
-            'position': 'Position',
-            'previous position': 'Previous position',
-            'previous_position': 'Previous position',
-            'prev position': 'Previous position',
-            'search volume': 'Search Volume',
-            'search_volume': 'Search Volume',
-            'volume': 'Search Volume',
-            'keyword difficulty': 'Keyword Difficulty',
-            'difficulty': 'Keyword Difficulty',
-            'kd': 'Keyword Difficulty',
-            'cpc': 'CPC',
-            'cost per click': 'CPC',
-            'url': 'URL',
-            'landing page': 'URL',
-            'traffic': 'Traffic',
-            'traffic %': 'Traffic (%)',
-            'traffic_percent': 'Traffic (%)',
-            'traffic cost': 'Traffic Cost',
-            'traffic_cost': 'Traffic Cost',
-            'competition': 'Competition',
-            'number of results': 'Number of Results',
-            'results': 'Number of Results',
-            'trends': 'Trends',
-            'trend': 'Trends',
-            'timestamp': 'Timestamp',
-            'date': 'Timestamp',
-            'serp features by keyword': 'SERP Features by Keyword',
-            'serp features': 'SERP Features by Keyword',
-            'keyword intents': 'Keyword Intents',
-            'intent': 'Keyword Intents',
-            'position type': 'Position Type',
-            'type': 'Position Type'
-        }
-        
-        # Apply fuzzy mapping
-        for orig in original_columns:
-            orig_lower = orig.lower().strip()
-            if orig_lower in fuzzy_mappings and orig not in mapping:
-                mapping[orig] = fuzzy_mappings[orig_lower]
-        
-        return mapping
+        return df.rename(columns=column_mapping)
     
     @staticmethod
     def _clean_data(df: pd.DataFrame) -> pd.DataFrame:
