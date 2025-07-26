@@ -24,7 +24,6 @@ class DataLoader:
             # Load file with automatic delimiter detection
             if file.name.endswith('.csv'):
                 # Try to detect delimiter
-                import io
                 content = file.read().decode('utf-8')
                 file.seek(0)  # Reset file pointer
                 
@@ -43,39 +42,23 @@ class DataLoader:
             # Clean column names
             df.columns = df.columns.str.strip()
             
-            # Show detected columns for debugging
-            st.write("✅ **File loaded successfully!**")
-            st.write("Detected columns:", list(df.columns))
-            
-            # Check if we have the exact columns needed
-            exact_match = all(col in df.columns for col in DataLoader.REQUIRED_COLUMNS)
-            
-            if exact_match:
-                st.success("✅ All required columns found!")
-                df = DataLoader._clean_data(df)
-                return df
-            
-            # Try to map columns if exact match fails
-            st.info("🔍 Attempting column mapping...")
+            # Map columns to standard names
             df = DataLoader._map_columns(df)
             
-            # Check again
+            # Check which columns are missing
             missing_cols = [col for col in DataLoader.REQUIRED_COLUMNS if col not in df.columns]
             if missing_cols:
-                st.error(f"❌ Missing columns: {missing_cols}")
-                
-                # Show what's available
-                st.write("Available columns:", list(df.columns))
+                st.error(f"Missing required columns: {missing_cols}")
                 
                 # Create template
                 template = DataLoader.create_template()
-                st.write("📋 **Template with exact column names:**")
+                st.write("Template with exact column names:")
                 st.dataframe(template.head(1))
                 
                 # Provide download
                 csv = template.to_csv(index=False)
                 st.download_button(
-                    label="📥 Download Template CSV",
+                    label="Download Template CSV",
                     data=csv,
                     file_name="keyword_gap_template.csv",
                     mime="text/csv"
@@ -88,8 +71,7 @@ class DataLoader:
             return df
             
         except Exception as e:
-            st.error(f"❌ Error loading file: {str(e)}")
-            st.info("💡 **Tip:** Make sure your CSV uses either commas (,) or semicolons (;) as delimiters.")
+            st.error(f"Error loading file: {str(e)}")
             return None
     
     @staticmethod
