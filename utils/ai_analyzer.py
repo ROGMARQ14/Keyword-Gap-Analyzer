@@ -2,7 +2,7 @@ import openai
 import anthropic
 import google.generativeai as genai
 import streamlit as st
-from typing import Dict, Any
+from typing import Dict, Any, List
 import toml
 
 class AIAnalyzer:
@@ -11,6 +11,7 @@ class AIAnalyzer:
     def __init__(self):
         self.config = self._load_config()
         self._setup_clients()
+        self._setup_models()
     
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from TOML files."""
@@ -27,17 +28,16 @@ class AIAnalyzer:
         if not api_keys:
             api_keys = self.config.get("api_keys", {})
         
-        # OpenAI - Use the correct method based on version
+        # OpenAI - Use the new client
         openai_key = api_keys.get("openai_api_key", "")
         if openai_key and openai_key.strip():
             try:
-                openai.api_key = openai_key
-                self.openai_client = True
+                self.openai_client = openai.OpenAI(api_key=openai_key)
             except Exception as e:
                 st.warning(f"OpenAI initialization failed: {str(e)}")
-                self.openai_client = False
+                self.openai_client = None
         else:
-            self.openai_client = False
+            self.openai_client = None
         
         # Anthropic - Safe initialization
         anthropic_key = api_keys.get("anthropic_api_key", "")
@@ -62,21 +62,68 @@ class AIAnalyzer:
         else:
             self.gemini_model = None
     
+    def _setup_models(self):
+        """Setup available models for each provider."""
+        self.models = {
+            "openai": [
+                "gpt-4",
+                "gpt-4-turbo",
+                "gpt-3.5-turbo",
+                "gpt-4o",
+                "gpt-4o-mini"
+            ],
+            "anthropic": [
+                "claude-3-5-sonnet-20241022",
+                "claude-3-5-haiku-20241022",
+                "claude-3-opus-20240229"
+            ],
+            "gemini": [
+                "gemini-pro",
+                "gemini-1.5-pro",
+                "gemini-1.5-flash"
+            ]
+        }
+    
+    def get_available_models(self, provider: str) -> List[str]:
+        """Get available models for a specific provider."""
+        return self.models.get(provider, [])
+    
+    def is_provider_configured(self, provider: str) -> bool:
+        """Check if a specific provider is configured."""
+        if provider == "openai":
+            return self.openai_client is not None
+        elif provider == "anthropic":
+            return self.anthropic_client is not None
+        elif provider == "gemini":
+            return self.gemini_model is not None
+        return False
+    
+    def get_configured_providers(self) -> List[str]:
+        """Get list of configured providers."""
+        providers = []
+        if self.openai_client:
+            providers.append("openai")
+        if self.anthropic_client:
+            providers.append("anthropic")
+        if self.gemini_model:
+            providers.append("gemini")
+        return providers
+    
     def generate_insights(self, analysis_data: Dict[str, Any], 
-                         model: str = "openai") -> str:
-        """Generate strategic insights using specified AI model."""
+                         provider: str, model: str) -> str:
+        """Generate strategic insights using specified provider and model."""
         
         prompt = self._build_analysis_prompt(analysis_data)
         
         try:
-            if model == "openai" and self.openai_client:
-                return self._openai_analysis(prompt)
-            elif model == "anthropic" and self.anthropic_client:
-                return self._anthropic_analysis(prompt)
-            elif model == "gemini" and self.gemini_model:
-                return self._gemini_analysis(prompt)
+            if provider == "openai" and self.openai_client:
+                return self._openai_analysis(prompt, model)
+            elif provider == "anthropic" and self.anthropic_client:
+                return self._anthropic_analysis(prompt, model)
+            elif provider == "gemini" and self.gemini_model:
+                return self._gemini_analysis(prompt, model)
             else:
-                return "AI analysis unavailable - API key not configured"
+                return f"{provider} is not configured or model is not available"
                 
         except Exception as e:
             return f"Error generating insights: {str(e)}"
@@ -134,13 +181,11 @@ class AIAnalyzer:
         
         return formatted
     
-    def _openai_analysis(self, prompt: str) -> str:
+    def _openai_analysis(self, prompt: str, model: str) -> str:
         """Generate analysis using OpenAI."""
         try:
-            # Try the new method first
-            client = openai.OpenAI(api_key=openai.api_key)
-            response = client.chat.completions.create(
-                model="gpt-4",
+            response = self.openai_client.chat.completions.create(
+                model=model,
                 messages=[
                     {"role": "system", "content": "You are an expert SEO strategist."},
                     {"role": "user", "content": prompt}
@@ -150,42 +195,30 @@ class AIAnalyzer:
             )
             return response.choices[0].message.content
         except Exception as e:
-            # Fallback to older method
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-4",
-                    messages=[
-                        {"role": "system", "content": "You are an expert SEO strategist."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    max_tokens=2000,
-                    temperature=0.7
-                )
-                return response.choices[0].message.content
-            except Exception as e2:
-                return f"OpenAI API error: {str(e2)}"
+            return f"OpenAI API error: {str(e)}"
     
-    def _anthropic_analysis(self, prompt: str) -> str:
+    def _anthropic_analysis(self, prompt: str, model: str) -> str:
         """Generate analysis using Anthropic Claude."""
-        response = self.anthropic_client.messages.create(
-            model="claude-3-sonnet-20240229",
-            max_tokens=2000,
-            temperature=0.7,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
+        try:
+            response = self.anthropic_client.messages.create(
+                model=model,
+                max_tokens=2000,
+                temperature=0.7,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.content[0].text
+        except Exception as e:
+            return f"Anthropic API error: {str(e)}"
     
-    def _gemini_analysis(self, prompt: str) -> str:
+    def _gemini_analysis(self, prompt: str, model: str) -> str:
         """Generate analysis using Google Gemini."""
-        response = self.gemini_model.generate_content(prompt)
-        return response.text
-    
-    def is_configured(self, model: str) -> bool:
-        """Check if specified model is configured."""
-        if model == "openai":
-            return self.openai_client
-        elif model == "anthropic":
-            return self.anthropic_client is not None
-        elif model == "gemini":
-            return self.gemini_model is not None
-        return False
+        try:
+            if model == "gemini-pro":
+                response = self.gemini_model.generate_content(prompt)
+            else:
+                # Handle other Gemini models
+                model_instance = genai.GenerativeModel(model)
+                response = model_instance.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            return f"Gemini API error: {str(e)}"
