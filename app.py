@@ -41,8 +41,36 @@ with st.sidebar:
     competitor_file = st.file_uploader("Upload Competitor File", type=['csv', 'xlsx', 'xls'])
     
     st.header("🤖 AI Analysis")
-    available_models = [m for m in ['openai', 'anthropic', 'gemini'] if ai_analyzer.is_configured(m)]
-    selected_model = st.selectbox("Select AI Model", available_models) if available_models else None
+    
+    # Get configured providers
+    configured_providers = ai_analyzer.get_configured_providers()
+    
+    if configured_providers:
+        # Provider selection
+        selected_provider = st.selectbox(
+            "Select AI Provider", 
+            configured_providers,
+            help="Choose which AI service to use for insights"
+        )
+        
+        # Model selection based on provider
+        available_models = ai_analyzer.get_available_models(selected_provider)
+        selected_model = st.selectbox(
+            "Select AI Model",
+            available_models,
+            help=f"Choose a specific model from {selected_provider}"
+        )
+        
+        # Temperature and token settings
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1,
+                              help="Higher values make output more creative")
+        max_tokens = st.slider("Max Tokens", 500, 4000, 2000, 100,
+                              help="Maximum length of AI response")
+        
+    else:
+        st.warning("No AI providers configured. Add API keys to config.toml or .streamlit/secrets.toml")
+        selected_provider = None
+        selected_model = None
     
     st.header("⚙️ Settings")
     min_volume = st.slider("Minimum Search Volume", 0, 1000, 100)
@@ -149,8 +177,9 @@ if client_file and competitor_file:
         
         with tab4:
             st.header("AI Strategic Insights")
-            if selected_model:
-                st.info(f"Using {selected_model} for AI-powered analysis")
+            if configured_providers and selected_provider and selected_model:
+                st.info(f"Using {selected_provider} - {selected_model} for AI-powered analysis")
+                
                 if st.button("Generate AI Insights", type="primary"):
                     analysis_data = {
                         'client_total_keywords': summary['client']['total_keywords'],
@@ -167,7 +196,11 @@ if client_file and competitor_file:
                     }
                     
                     with st.spinner("Generating AI insights..."):
-                        insights = ai_analyzer.generate_insights(analysis_data, selected_model)
+                        insights = ai_analyzer.generate_insights(
+                            analysis_data, 
+                            selected_provider, 
+                            selected_model
+                        )
                         st.markdown("### 🤖 AI Strategic Recommendations")
                         st.markdown(insights)
                         
@@ -178,7 +211,7 @@ if client_file and competitor_file:
                             mime="text/plain"
                         )
             else:
-                st.warning("No AI models configured. Add API keys to config.toml or .streamlit/secrets.toml")
+                st.warning("No AI providers configured. Add API keys to config.toml or .streamlit/secrets.toml")
         
         # Export functionality
         st.header("📥 Export Data")
@@ -219,57 +252,23 @@ else:
     # Welcome screen with tooltips
     st.info("👋 Welcome to the Keyword Gap Analyzer!")
     
-    with st.expander("📋 How to use this tool", expanded=False):
-        st.markdown("""
-        ### Step-by-step guide:
-        
-        1. **Upload CSV/Excel Files**: Upload your client and competitor organic performance reports
-        2. **Configure AI**: Add your API keys to `config.toml` or `.streamlit/secrets.toml` for AI-powered insights
-        3. **Analyze**: Explore opportunities, wins, and strategic recommendations
-        4. **Export**: Download your analysis in various formats
-        
-        ### Supported file formats:
-        - CSV files (.csv) - supports both comma and semicolon delimiters
-        - Excel files (.xlsx, .xls)
-        """)
+    st.markdown("""
+    ### How to use this tool:
     
-    with st.expander("📊 Required Columns", expanded=False):
-        st.markdown("""
-        Your files must contain these columns:
-        
-        | Column | Description |
-        |--------|-------------|
-        | Keyword | Search term |
-        | Position | Current ranking position |
-        | Previous position | Previous ranking position |
-        | Search Volume | Monthly search volume |
-        | Keyword Difficulty | SEO difficulty score (0-100) |
-        | CPC | Cost per click |
-        | URL | Ranking URL |
-        | Traffic | Estimated traffic |
-        | Traffic (%) | Traffic percentage |
-        | Traffic Cost | Traffic value in USD |
-        | Competition | Competition level |
-        | Number of Results | Total results |
-        | Trends | Trend indicator |
-        | Timestamp | Data collection date |
-        | SERP Features by Keyword | SERP features present |
-        | Keyword Intents | Search intent |
-        | Position Type | Type of position |
-        """)
+    1. **Upload Files**: Upload your client and competitor CSV/Excel files
+    2. **Configure AI**: Add your API keys to `config.toml` for AI-powered insights
+    3. **Analyze**: Explore opportunities, wins, and strategic recommendations
+    4. **Export**: Download your analysis in various formats
     
-    with st.expander("🎯 Understanding Opportunities", expanded=False):
-        st.markdown("""
-        ### Opportunity Types Explained:
-        
-        **🚀 Quick Wins**: Keywords where you rank 6-10 and competitor ranks 1-5. These are low-hanging fruit - optimize existing content to quickly improve rankings.
-        
-        **🔥 Steal Opportunities**: Keywords where competitor ranks 1-5 and you're not ranking (11+). These require new content creation but offer high traffic potential.
-        
-        **🛡️ Defensive Keywords**: Keywords where you rank 1-5 but competitor is close behind. Monitor these closely and optimize to maintain your rankings.
-        
-        **🏆 Client Wins**: Keywords where you outperform your competitor. Showcase these successes to demonstrate current SEO strength.
-        """)
+    ### Required Columns:
+    - Keyword, Position, Previous position, Search Volume, Keyword Difficulty
+    - CPC, URL, Traffic, Traffic (%), Traffic Cost, Competition
+    - Number of Results, Trends, Timestamp, SERP Features by Keyword
+    - Keyword Intents, Position Type
+    
+    ### Get Started:
+    Upload your files using the sidebar to begin the analysis!
+    """)
 
 # Footer
 st.markdown("---")
