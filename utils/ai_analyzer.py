@@ -27,7 +27,7 @@ class AIAnalyzer:
         if not api_keys:
             api_keys = self.config.get("api_keys", {})
         
-        # OpenAI - Use older initialization method for compatibility
+        # OpenAI - Use the correct method based on version
         openai_key = api_keys.get("openai_api_key", "")
         if openai_key and openai_key.strip():
             try:
@@ -136,16 +136,34 @@ class AIAnalyzer:
     
     def _openai_analysis(self, prompt: str) -> str:
         """Generate analysis using OpenAI."""
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an expert SEO strategist."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=2000,
-            temperature=0.7
-        )
-        return response.choices[0].message.content
+        try:
+            # Try the new method first
+            client = openai.OpenAI(api_key=openai.api_key)
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert SEO strategist."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.7
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            # Fallback to older method
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": "You are an expert SEO strategist."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=2000,
+                    temperature=0.7
+                )
+                return response.choices[0].message.content
+            except Exception as e2:
+                return f"OpenAI API error: {str(e2)}"
     
     def _anthropic_analysis(self, prompt: str) -> str:
         """Generate analysis using Anthropic Claude."""
