@@ -6,35 +6,22 @@ from typing import Optional
 class DataLoader:
     """Handles loading and validation of CSV files for keyword analysis."""
     
-    # Flexible column mapping for real-world CSV files
-    COLUMN_MAPPING = {
-        'Keyword': ['Keyword', 'keyword', 'Keywords', 'keywords', 'Search Term', 'search term'],
-        'Position': ['Position', 'position', 'Rank', 'rank', 'Current Position'],
-        'Previous position': ['Previous position', 'Previous Position', 'Previous Rank', 'previous_position', 'Prev Position'],
-        'Search Volume': ['Search Volume', 'search volume', 'Volume', 'volume', 'SV', 'Monthly Searches'],
-        'Keyword Difficulty': ['Keyword Difficulty', 'keyword difficulty', 'Difficulty', 'KD', 'Competition Score'],
-        'CPC': ['CPC', 'cpc', 'Cost Per Click', 'Cost per click', 'Avg CPC'],
-        'URL': ['URL', 'url', 'Landing Page', 'landing page', 'Page URL'],
-        'Traffic': ['Traffic', 'traffic', 'Est Traffic', 'Estimated Traffic', 'Organic Traffic'],
-        'Traffic (%)': ['Traffic (%)', 'Traffic %', 'traffic_percent', 'Traffic Share', 'Share'],
-        'Traffic Cost': ['Traffic Cost', 'traffic cost', 'Est Cost', 'Estimated Cost', 'Value'],
-        'Competition': ['Competition', 'competition', 'Competitive Density', 'Density'],
-        'Number of Results': ['Number of Results', 'Results', 'number_of_results', 'Total Results'],
-        'Trends': ['Trends', 'trends', 'Trend', 'trend', 'Search Trend'],
-        'Timestamp': ['Timestamp', 'timestamp', 'Date', 'date', 'Last Updated'],
-        'SERP Features by Keyword': ['SERP Features by Keyword', 'SERP Features', 'serp_features', 'Features'],
-        'Keyword Intents': ['Keyword Intents', 'Intent', 'intent', 'Search Intent', 'User Intent'],
-        'Position Type': ['Position Type', 'Type', 'position_type', 'Result Type', 'SERP Type']
-    }
+    # Standard required columns
+    REQUIRED_COLUMNS = [
+        'Keyword', 'Position', 'Previous position', 'Search Volume',
+        'Keyword Difficulty', 'CPC', 'URL', 'Traffic', 'Traffic (%)',
+        'Traffic Cost', 'Competition', 'Number of Results', 'Trends',
+        'Timestamp', 'SERP Features by Keyword', 'Keyword Intents', 'Position Type'
+    ]
     
     @staticmethod
     def load_file(file) -> Optional[pd.DataFrame]:
-        """Load and validate CSV/Excel file with flexible column mapping."""
+        """Load and validate CSV/Excel file with automatic column detection."""
         try:
             if file is None:
                 return None
                 
-            # Determine file type and load accordingly
+            # Load file
             if file.name.endswith('.csv'):
                 df = pd.read_csv(file, on_bad_lines='skip', engine='python')
             elif file.name.endswith(('.xlsx', '.xls')):
@@ -43,53 +30,109 @@ class DataLoader:
                 st.error("Unsupported file format. Please use CSV or Excel files.")
                 return None
             
-            # Map columns to standard names
-            df = DataLoader._map_columns(df)
+            # Show detected columns for debugging
+            st.write("Detected columns:", list(df.columns))
             
-            # Validate we have the required columns
-            missing_cols = []
-            for standard_col in DataLoader.COLUMN_MAPPING.keys():
-                if standard_col not in df.columns:
-                    missing_cols.append(standard_col)
+            # Map columns automatically
+            column_mapping = DataLoader._create_column_mapping(df.columns)
+            st.write("Column mapping:", column_mapping)
             
+            # Apply mapping
+            df = df.rename(columns=column_mapping)
+            
+            # Check which columns are missing
+            missing_cols = [col for col in DataLoader.REQUIRED_COLUMNS if col not in df.columns]
             if missing_cols:
                 st.error(f"Missing required columns: {missing_cols}")
-                st.info("Please ensure your file contains columns for: " + ", ".join(missing_cols))
-                return None
+                st.write("Available columns after mapping:", list(df.columns))
                 
+                # Show what we found
+                found_cols = [col for col in DataLoader.REQUIRED_COLUMNS if col in df.columns]
+                st.success(f"Found columns: {found_cols}")
+                
+                # Create a template for missing columns
+                template_df = pd.DataFrame(columns=DataLoader.REQUIRED_COLUMNS)
+                st.write("Template with all required columns:")
+                st.dataframe(template_df.head())
+                
+                return None
+            
             # Clean and preprocess data
             df = DataLoader._clean_data(df)
             return df
             
         except Exception as e:
             st.error(f"Error loading file: {str(e)}")
-            st.info("Please check your file format and ensure it contains the required columns.")
             return None
     
     @staticmethod
-    def _map_columns(df: pd.DataFrame) -> pd.DataFrame:
-        """Map flexible column names to standard names."""
-        df = df.copy()
-        column_mapping = {}
+    def _create_column_mapping(original_columns):
+        """Create mapping from original columns to standard names."""
+        mapping = {}
+        original_lower = [col.lower().strip() for col in original_columns]
         
-        for standard_name, possible_names in DataLoader.COLUMN_MAPPING.items():
-            for col in df.columns:
-                if col.strip().lower() in [name.lower() for name in possible_names]:
-                    column_mapping[col] = standard_name
+        # Direct mapping
+        for standard in DataLoader.REQUIRED_COLUMNS:
+            standard_lower = standard.lower().strip()
+            for i, orig in enumerate(original_columns):
+                if orig.lower().strip() == standard_lower:
+                    mapping[orig] = standard
                     break
         
-        return df.rename(columns=column_mapping)
+        # Fuzzy mapping for common variations
+        fuzzy_mappings = {
+            'keyword': 'Keyword',
+            'position': 'Position',
+            'previous position': 'Previous position',
+            'previous_position': 'Previous position',
+            'prev position': 'Previous position',
+            'search volume': 'Search Volume',
+            'search_volume': 'Search Volume',
+            'volume': 'Search Volume',
+            'keyword difficulty': 'Keyword Difficulty',
+            'difficulty': 'Keyword Difficulty',
+            'kd': 'Keyword Difficulty',
+            'cpc': 'CPC',
+            'cost per click': 'CPC',
+            'url': 'URL',
+            'landing page': 'URL',
+            'traffic': 'Traffic',
+            'traffic %': 'Traffic (%)',
+            'traffic_percent': 'Traffic (%)',
+            'traffic cost': 'Traffic Cost',
+            'traffic_cost': 'Traffic Cost',
+            'competition': 'Competition',
+            'number of results': 'Number of Results',
+            'results': 'Number of Results',
+            'trends': 'Trends',
+            'trend': 'Trends',
+            'timestamp': 'Timestamp',
+            'date': 'Timestamp',
+            'serp features by keyword': 'SERP Features by Keyword',
+            'serp features': 'SERP Features by Keyword',
+            'keyword intents': 'Keyword Intents',
+            'intent': 'Keyword Intents',
+            'position type': 'Position Type',
+            'type': 'Position Type'
+        }
+        
+        # Apply fuzzy mapping
+        for orig in original_columns:
+            orig_lower = orig.lower().strip()
+            if orig_lower in fuzzy_mappings and orig not in mapping:
+                mapping[orig] = fuzzy_mappings[orig_lower]
+        
+        return mapping
     
     @staticmethod
     def _clean_data(df: pd.DataFrame) -> pd.DataFrame:
         """Clean and preprocess the data."""
-        # Create a copy to avoid modifying original
         df = df.copy()
         
         # Convert numeric columns
         numeric_cols = [
-            'Position', 'Previous position', 'Search Volume', 
-            'Keyword Difficulty', 'CPC', 'Traffic', 'Traffic (%)', 
+            'Position', 'Previous position', 'Search Volume',
+            'Keyword Difficulty', 'CPC', 'Traffic', 'Traffic (%)',
             'Traffic Cost', 'Competition', 'Number of Results'
         ]
         
@@ -102,31 +145,29 @@ class DataLoader:
         df['Keyword Difficulty'] = df['Keyword Difficulty'].fillna(50)
         df['CPC'] = df['CPC'].fillna(0)
         
-        # Create additional calculated fields
+        # Create calculated fields
         df['Position Change'] = df['Previous position'] - df['Position']
         df['Opportunity Score'] = (
             df['Search Volume'] * df['Traffic (%)']
         ) / (df['Keyword Difficulty'] + 1)
-        df['Competitive Threat'] = df['Position'] * df['Traffic Cost']
         
         return df
     
     @staticmethod
-    def validate_files(client_df: pd.DataFrame, competitor_df: pd.DataFrame) -> bool:
-        """Validate that both files are properly loaded."""
-        if client_df is None or competitor_df is None:
-            return False
-            
-        if client_df.empty or competitor_df.empty:
-            st.error("One or both files are empty")
-            return False
-            
-        return True
+    def create_template():
+        """Create a template CSV with all required columns."""
+        template = pd.DataFrame(columns=DataLoader.REQUIRED_COLUMNS)
+        template.loc[0] = [
+            'example keyword', 1, 2, 1000, 45, 2.5, 'https://example.com', 800, 80.0,
+            2000.0, 0.8, 500000, 0.15, '2024-07-25', 'Featured snippet', 'Commercial', 'Regular'
+        ]
+        return template
     
     @staticmethod
-    def get_sample_columns() -> dict:
-        """Return sample column names for reference."""
+    def validate_columns(df):
+        """Check which columns are present."""
         return {
-            "Required Columns": list(DataLoader.COLUMN_MAPPING.keys()),
-            "Flexible Names": {k: v[:3] for k, v in DataLoader.COLUMN_MAPPING.items()}
+            'present': [col for col in DataLoader.REQUIRED_COLUMNS if col in df.columns],
+            'missing': [col for col in DataLoader.REQUIRED_COLUMNS if col not in df.columns],
+            'available': list(df.columns)
         }
