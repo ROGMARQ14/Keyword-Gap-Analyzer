@@ -6,16 +6,30 @@ from typing import Optional
 class DataLoader:
     """Handles loading and validation of CSV files for keyword analysis."""
     
-    REQUIRED_COLUMNS = [
-        'Keyword', 'Position', 'Previous position', 'Search Volume', 
-        'Keyword Difficulty', 'CPC', 'URL', 'Traffic', 'Traffic (%)', 
-        'Traffic Cost', 'Competition', 'Number of Results', 'Trends', 
-        'Timestamp', 'SERP Features by Keyword', 'Keyword Intents', 'Position Type'
-    ]
+    # Flexible column mapping for real-world CSV files
+    COLUMN_MAPPING = {
+        'Keyword': ['Keyword', 'keyword', 'Keywords', 'keywords', 'Search Term', 'search term'],
+        'Position': ['Position', 'position', 'Rank', 'rank', 'Current Position'],
+        'Previous position': ['Previous position', 'Previous Position', 'Previous Rank', 'previous_position', 'Prev Position'],
+        'Search Volume': ['Search Volume', 'search volume', 'Volume', 'volume', 'SV', 'Monthly Searches'],
+        'Keyword Difficulty': ['Keyword Difficulty', 'keyword difficulty', 'Difficulty', 'KD', 'Competition Score'],
+        'CPC': ['CPC', 'cpc', 'Cost Per Click', 'Cost per click', 'Avg CPC'],
+        'URL': ['URL', 'url', 'Landing Page', 'landing page', 'Page URL'],
+        'Traffic': ['Traffic', 'traffic', 'Est Traffic', 'Estimated Traffic', 'Organic Traffic'],
+        'Traffic (%)': ['Traffic (%)', 'Traffic %', 'traffic_percent', 'Traffic Share', 'Share'],
+        'Traffic Cost': ['Traffic Cost', 'traffic cost', 'Est Cost', 'Estimated Cost', 'Value'],
+        'Competition': ['Competition', 'competition', 'Competitive Density', 'Density'],
+        'Number of Results': ['Number of Results', 'Results', 'number_of_results', 'Total Results'],
+        'Trends': ['Trends', 'trends', 'Trend', 'trend', 'Search Trend'],
+        'Timestamp': ['Timestamp', 'timestamp', 'Date', 'date', 'Last Updated'],
+        'SERP Features by Keyword': ['SERP Features by Keyword', 'SERP Features', 'serp_features', 'Features'],
+        'Keyword Intents': ['Keyword Intents', 'Intent', 'intent', 'Search Intent', 'User Intent'],
+        'Position Type': ['Position Type', 'Type', 'position_type', 'Result Type', 'SERP Type']
+    }
     
     @staticmethod
     def load_file(file) -> Optional[pd.DataFrame]:
-        """Load and validate CSV/Excel file."""
+        """Load and validate CSV/Excel file with flexible column mapping."""
         try:
             if file is None:
                 return None
@@ -29,10 +43,18 @@ class DataLoader:
                 st.error("Unsupported file format. Please use CSV or Excel files.")
                 return None
             
-            # Validate required columns
-            missing_cols = set(DataLoader.REQUIRED_COLUMNS) - set(df.columns)
+            # Map columns to standard names
+            df = DataLoader._map_columns(df)
+            
+            # Validate we have the required columns
+            missing_cols = []
+            for standard_col in DataLoader.COLUMN_MAPPING.keys():
+                if standard_col not in df.columns:
+                    missing_cols.append(standard_col)
+            
             if missing_cols:
                 st.error(f"Missing required columns: {missing_cols}")
+                st.info("Please ensure your file contains columns for: " + ", ".join(missing_cols))
                 return None
                 
             # Clean and preprocess data
@@ -41,7 +63,22 @@ class DataLoader:
             
         except Exception as e:
             st.error(f"Error loading file: {str(e)}")
+            st.info("Please check your file format and ensure it contains the required columns.")
             return None
+    
+    @staticmethod
+    def _map_columns(df: pd.DataFrame) -> pd.DataFrame:
+        """Map flexible column names to standard names."""
+        df = df.copy()
+        column_mapping = {}
+        
+        for standard_name, possible_names in DataLoader.COLUMN_MAPPING.items():
+            for col in df.columns:
+                if col.strip().lower() in [name.lower() for name in possible_names]:
+                    column_mapping[col] = standard_name
+                    break
+        
+        return df.rename(columns=column_mapping)
     
     @staticmethod
     def _clean_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -85,3 +122,11 @@ class DataLoader:
             return False
             
         return True
+    
+    @staticmethod
+    def get_sample_columns() -> dict:
+        """Return sample column names for reference."""
+        return {
+            "Required Columns": list(DataLoader.COLUMN_MAPPING.keys()),
+            "Flexible Names": {k: v[:3] for k, v in DataLoader.COLUMN_MAPPING.items()}
+        }
