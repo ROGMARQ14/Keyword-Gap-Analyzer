@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from typing import Optional
 
+
 class DataLoader:
     """Handles loading and validation of CSV files for keyword analysis."""
     
@@ -13,7 +14,7 @@ class DataLoader:
     ]
     
     @staticmethod
-    def load_file(file: st.uploaded_file_manager.UploadedFile) -> Optional[pd.DataFrame]:
+    def load_file(file) -> Optional[pd.DataFrame]:
         """Load and validate CSV/Excel file."""
         try:
             if file is None:
@@ -49,9 +50,11 @@ class DataLoader:
         df = df.copy()
         
         # Convert numeric columns
-        numeric_cols = ['Position', 'Previous position', 'Search Volume', 
-                       'Keyword Difficulty', 'CPC', 'Traffic', 'Traffic (%)', 
-                       'Traffic Cost', 'Competition', 'Number of Results']
+        numeric_cols = [
+            'Position', 'Previous position', 'Search Volume', 
+            'Keyword Difficulty', 'CPC', 'Traffic', 'Traffic (%)', 
+            'Traffic Cost', 'Competition', 'Number of Results'
+        ]
         
         for col in numeric_cols:
             if col in df.columns:
@@ -64,7 +67,9 @@ class DataLoader:
         
         # Create additional calculated fields
         df['Position Change'] = df['Previous position'] - df['Position']
-        df['Opportunity Score'] = (df['Search Volume'] * df['Traffic (%)']) / (df['Keyword Difficulty'] + 1)
+        df['Opportunity Score'] = (
+            df['Search Volume'] * df['Traffic (%)']
+        ) / (df['Keyword Difficulty'] + 1)
         df['Competitive Threat'] = df['Position'] * df['Traffic Cost']
         
         return df
