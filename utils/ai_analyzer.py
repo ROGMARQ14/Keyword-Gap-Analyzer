@@ -2,6 +2,7 @@ import openai
 import anthropic
 import google.generativeai as genai
 import streamlit as st
+import pandas as pd
 from typing import Dict, Any
 import toml
 
@@ -27,37 +28,25 @@ class AIAnalyzer:
         if not api_keys:
             api_keys = self.config.get("api_keys", {})
         
-        # OpenAI
+        # OpenAI - Updated for newer version
         openai_key = api_keys.get("openai_api_key", "")
         if openai_key:
-            try:
-                self.openai_client = openai.OpenAI(api_key=openai_key)
-            except Exception as e:
-                st.error(f"OpenAI initialization error: {str(e)}")
-                self.openai_client = None
+            self.openai_client = openai.OpenAI(api_key=openai_key)
         else:
             self.openai_client = None
         
         # Anthropic
         anthropic_key = api_keys.get("anthropic_api_key", "")
         if anthropic_key:
-            try:
-                self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
-            except Exception as e:
-                st.error(f"Anthropic initialization error: {str(e)}")
-                self.anthropic_client = None
+            self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
         else:
             self.anthropic_client = None
         
         # Gemini
         gemini_key = api_keys.get("gemini_api_key", "")
         if gemini_key:
-            try:
-                genai.configure(api_key=gemini_key)
-                self.gemini_model = genai.GenerativeModel('gemini-pro')
-            except Exception as e:
-                st.error(f"Gemini initialization error: {str(e)}")
-                self.gemini_model = None
+            genai.configure(api_key=gemini_key)
+            self.gemini_model = genai.GenerativeModel('gemini-pro')
         else:
             self.gemini_model = None
     
@@ -86,7 +75,7 @@ class AIAnalyzer:
         prompt = f"""
         You are an expert SEO strategist conducting a comprehensive keyword gap analysis.
         
-        Based on the following data, provide strategic insights and actionable recommendations in **markdown format** with clear sections, bullet points, and specific keyword recommendations.
+        Based on the following data, provide strategic insights and actionable recommendations:
         
         CLIENT OVERVIEW:
         - Total Keywords: {data.get('client_total_keywords', 0)}
@@ -108,17 +97,15 @@ class AIAnalyzer:
         TOP KEYWORDS BY CATEGORY:
         {self._format_keyword_lists(data)}
         
-        Provide a detailed analysis in **markdown format** with:
-        1. **Executive Summary** with key findings
-        2. **Immediate Action Items** (next 30 days) with specific keyword targets
-        3. **Medium-term Strategy** (next 3 months) with content calendar
-        4. **Long-term Investment Opportunities** with ROI projections
-        5. **Specific Content Strategies** for each keyword category
-        6. **Technical SEO Priorities** for each keyword group
-        7. **ROI Projections** with traffic and revenue estimates
+        Provide:
+        1. Executive summary with key findings
+        2. Immediate action items (next 30 days)
+        3. Medium-term strategy (next 3 months)
+        4. Long-term investment opportunities
+        5. Content calendar recommendations
+        6. Technical SEO priorities
         
-        Format with clear headers, bullet points, and specific keyword recommendations.
-        Include actual keyword examples from the data provided.
+        Focus on actionable insights that will drive organic visibility improvements.
         """
         
         return prompt
@@ -129,13 +116,9 @@ class AIAnalyzer:
         
         for category, keywords in data.items():
             if isinstance(keywords, list) and keywords and isinstance(keywords[0], dict):
-                formatted += f"\n### {category.upper().replace('_', ' ')}:\n"
-                for kw in keywords[:10]:  # Top 10 per category
-                    formatted += f"- **{kw.get('Keyword', 'N/A')}** "
-                    formatted += f"(Volume: {kw.get('Search Volume', 0):,}, "
-                    formatted += f"Difficulty: {kw.get('Keyword Difficulty', 0)}, "
-                    formatted += f"Client: {kw.get('Client Position', 'N/A')}, "
-                    formatted += f"Competitor: {kw.get('Competitor Position', 'N/A')})\n"
+                formatted += f"\n{category.upper().replace('_', ' ')}:\n"
+                for kw in keywords[:5]:  # Top 5 per category
+                    formatted += f"- {kw.get('Keyword', 'N/A')} (Volume: {kw.get('Search Volume', 0):,}, Difficulty: {kw.get('Keyword Difficulty', 0)})\n"
         
         return formatted
     
@@ -144,10 +127,10 @@ class AIAnalyzer:
         response = self.openai_client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are an expert SEO strategist. Format your response in markdown with clear sections, bullet points, and specific keyword recommendations."},
+                {"role": "system", "content": "You are an expert SEO strategist."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=3000,
+            max_tokens=2000,
             temperature=0.7
         )
         return response.choices[0].message.content
@@ -156,7 +139,7 @@ class AIAnalyzer:
         """Generate analysis using Anthropic Claude."""
         response = self.anthropic_client.messages.create(
             model="claude-3-sonnet-20240229",
-            max_tokens=3000,
+            max_tokens=2000,
             temperature=0.7,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -176,12 +159,3 @@ class AIAnalyzer:
         elif model == "gemini":
             return self.gemini_model is not None
         return False
-    
-    def format_insights_for_display(self, insights: str) -> str:
-        """Format insights for better display in Streamlit."""
-        # Already in markdown format from AI
-        return insights
-    
-    def export_insights_markdown(self, insights: str, filename: str = "ai_strategic_insights.md") -> bytes:
-        """Export insights as markdown file."""
-        return insights.encode('utf-8')
