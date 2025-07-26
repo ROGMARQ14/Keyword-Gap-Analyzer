@@ -2,7 +2,6 @@ import openai
 import anthropic
 import google.generativeai as genai
 import streamlit as st
-import pandas as pd
 from typing import Dict, Any
 import toml
 
@@ -28,25 +27,37 @@ class AIAnalyzer:
         if not api_keys:
             api_keys = self.config.get("api_keys", {})
         
-        # OpenAI - Updated for newer version
+        # OpenAI - Safe initialization
         openai_key = api_keys.get("openai_api_key", "")
-        if openai_key:
-            self.openai_client = openai.OpenAI(api_key=openai_key)
+        if openai_key and openai_key.strip():
+            try:
+                self.openai_client = openai.OpenAI(api_key=openai_key)
+            except Exception as e:
+                st.warning(f"OpenAI initialization failed: {str(e)}")
+                self.openai_client = None
         else:
             self.openai_client = None
         
-        # Anthropic
+        # Anthropic - Safe initialization
         anthropic_key = api_keys.get("anthropic_api_key", "")
-        if anthropic_key:
-            self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
+        if anthropic_key and anthropic_key.strip():
+            try:
+                self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
+            except Exception as e:
+                st.warning(f"Anthropic initialization failed: {str(e)}")
+                self.anthropic_client = None
         else:
             self.anthropic_client = None
         
-        # Gemini
+        # Gemini - Safe initialization
         gemini_key = api_keys.get("gemini_api_key", "")
-        if gemini_key:
-            genai.configure(api_key=gemini_key)
-            self.gemini_model = genai.GenerativeModel('gemini-pro')
+        if gemini_key and gemini_key.strip():
+            try:
+                genai.configure(api_key=gemini_key)
+                self.gemini_model = genai.GenerativeModel('gemini-pro')
+            except Exception as e:
+                st.warning(f"Gemini initialization failed: {str(e)}")
+                self.gemini_model = None
         else:
             self.gemini_model = None
     
@@ -64,7 +75,7 @@ class AIAnalyzer:
             elif model == "gemini" and self.gemini_model:
                 return self._gemini_analysis(prompt)
             else:
-                return "AI analysis unavailable - API key not configured"
+                return "AI analysis unavailable - API key not configured or initialization failed"
                 
         except Exception as e:
             return f"Error generating insights: {str(e)}"
