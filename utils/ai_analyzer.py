@@ -33,6 +33,7 @@ class AIAnalyzer:
         if openai_key and openai_key.strip():
             try:
                 self.openai_client = openai.OpenAI(api_key=openai_key)
+                st.success("OpenAI configured successfully")
             except Exception as e:
                 st.warning(f"OpenAI initialization failed: {str(e)}")
                 self.openai_client = None
@@ -44,6 +45,7 @@ class AIAnalyzer:
         if anthropic_key and anthropic_key.strip():
             try:
                 self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
+                st.success("Anthropic configured successfully")
             except Exception as e:
                 st.warning(f"Anthropic initialization failed: {str(e)}")
                 self.anthropic_client = None
@@ -55,7 +57,8 @@ class AIAnalyzer:
         if gemini_key and gemini_key.strip():
             try:
                 genai.configure(api_key=gemini_key)
-                self.gemini_model = genai.GenerativeModel('gemini-pro')
+                self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                st.success("Gemini configured successfully")
             except Exception as e:
                 st.warning(f"Gemini initialization failed: {str(e)}")
                 self.gemini_model = None
@@ -66,11 +69,10 @@ class AIAnalyzer:
         """Setup available models for each provider."""
         self.models = {
             "openai": [
-                "gpt-4",
-                "gpt-4-turbo",
-                "gpt-3.5-turbo",
                 "gpt-4o",
-                "gpt-4o-mini"
+                "gpt-4o-mini",
+                "gpt-4-turbo",
+                "gpt-3.5-turbo"
             ],
             "anthropic": [
                 "claude-3-5-sonnet-20241022",
@@ -78,9 +80,8 @@ class AIAnalyzer:
                 "claude-3-opus-20240229"
             ],
             "gemini": [
-                "gemini-pro",
-                "gemini-1.5-pro",
-                "gemini-1.5-flash"
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
             ]
         }
     
@@ -213,12 +214,14 @@ class AIAnalyzer:
     def _gemini_analysis(self, prompt: str, model: str) -> str:
         """Generate analysis using Google Gemini."""
         try:
-            if model == "gemini-pro":
+            if model == "gemini-1.5-flash":
                 response = self.gemini_model.generate_content(prompt)
-            else:
-                # Handle other Gemini models
-                model_instance = genai.GenerativeModel(model)
+            elif model == "gemini-1.5-pro":
+                model_instance = genai.GenerativeModel('gemini-1.5-pro')
                 response = model_instance.generate_content(prompt)
+            else:
+                # Fallback to configured model
+                response = self.gemini_model.generate_content(prompt)
             return response.text
         except Exception as e:
             return f"Gemini API error: {str(e)}"
