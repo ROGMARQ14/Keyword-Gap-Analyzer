@@ -1,201 +1,285 @@
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
 import pandas as pd
-from typing import Dict
+import numpy as np
 
 
 class ChartGenerator:
-    """Generate interactive visualizations for keyword analysis."""
+    """Generate interactive charts for keyword gap analysis."""
     
     @staticmethod
     def create_position_comparison_chart(client_df: pd.DataFrame, 
                                        competitor_df: pd.DataFrame) -> go.Figure:
-        """Create position distribution comparison."""
+        """Create scatter plot comparing positions between client and competitor."""
         
-        client_positions = client_df['Position'].value_counts().sort_index()
-        competitor_positions = competitor_df['Position'].value_counts().sort_index()
+        # Merge dataframes on keyword
+        merged_df = pd.merge(
+            client_df[['Keyword', 'Position', 'Search Volume', 'Traffic Cost']],
+            competitor_df[['Keyword', 'Position', 'Search Volume', 'Traffic Cost']],
+            on='Keyword',
+            suffixes=('_client', '_competitor')
+        )
         
         fig = go.Figure()
         
+        # Add scatter plot
         fig.add_trace(go.Scatter(
-            x=client_positions.index,
-            y=client_positions.values,
-            mode='lines+markers',
-            name='Client',
-            line=dict(color='#1f77b4', width=3),
-            marker=dict(size=8)
+            x=merged_df['Position_client'],
+            y=merged_df['Position_competitor'],
+            mode='markers',
+            marker=dict(
+                size=np.log(merged_df['Search Volume_client'] + 1) * 3,
+                color=merged_df['Traffic Cost_client'],
+                colorscale='Viridis',
+                showscale=True,
+                colorbar=dict(title="Traffic Cost")
+            ),
+            text=merged_df['Keyword'],
+            hovertemplate='<b>%{text}</b><br>' +
+                          'Client Position: %{x}<br>' +
+                          'Competitor Position: %{y}<br>' +
+                          'Search Volume: %{marker.size}<br>' +
+                          'Traffic Cost: %{marker.color}<extra></extra>'
         ))
         
+        # Add diagonal line
         fig.add_trace(go.Scatter(
-            x=competitor_positions.index,
-            y=competitor_positions.values,
-            mode='lines+markers',
-            name='Competitor',
-            line=dict(color='#ff7f0e', width=3),
-            marker=dict(size=8)
+            x=[0, 100],
+            y=[0, 100],
+            mode='lines',
+            line=dict(dash='dash', color='red'),
+            name='Equal Position'
         ))
         
         fig.update_layout(
-            title='Position Distribution Comparison',
-            xaxis_title='Position',
-            yaxis_title='Number of Keywords',
-            height=400,
-            template='plotly_white'
+            title='Keyword Position Comparison: Client vs Competitor',
+            xaxis_title='Client Position',
+            yaxis_title='Competitor Position',
+            height=600,
+            showlegend=False
         )
         
         return fig
     
     @staticmethod
-    def create_opportunity_matrix(opportunities_df: pd.DataFrame) -> go.Figure:
+    def create_opportunity_matrix(client_df: pd.DataFrame, 
+                                competitor_df: pd.DataFrame) -> go.Figure:
         """Create opportunity matrix visualization."""
-        if opportunities_df.empty:
-            return go.Figure()
+        
+        # Calculate opportunity scores
+        client_keywords = set(client_df['Keyword'])
+        competitor_keywords = set(competitor_df['Keyword'])
+        
+        # Keywords where competitor ranks better
+        opportunities = []
+        for keyword in competitor_keywords:
+            if keyword in client_keywords:
+                client_pos = client_df[client_df['Keyword'] == keyword]['Position'].iloc[0]
+                comp_pos = competitor_df[competitor_df['Keyword'] == keyword]['Position'].iloc[0]
+                search_vol = competitor_df[competitor_df['Keyword'] == keyword]['Search Volume'].iloc[0]
+                
+                if comp_pos < client_pos:  # Competitor ranks better
+                    opportunities.append({
+                        'Keyword': keyword,
+                        'Client Position': client_pos,
+                        'Competitor Position': comp_pos,
+                        'Search Volume': search_vol,
+                        'Opportunity Score': search_vol / (client_pos - comp_pos + 1)
+                    })
+        
+        if not opportunities:
+            return go.Figure().add_annotation(
+                text="No opportunities found",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+        
+        opp_df = pd.DataFrame(opportunities)
         
         fig = px.scatter(
-            opportunities_df,
-            x='Keyword Difficulty_client',
-            y='Search Volume_client',
-            color='Type',
-            size='Traffic Cost_client',
-            hover_data=['Keyword', 'Position_client', 'Position_competitor'],
-            title='Opportunity Matrix: Difficulty vs Volume'
-        )
-        
-        fig.update_layout(
-            height=500,
-            template='plotly_white',
-            xaxis_title='Keyword Difficulty',
-            yaxis_title='Search Volume'
+            opp_df,
+            x='Competitor Position',
+            y='Client Position',
+            size='Search Volume',
+            color='Opportunity Score',
+            hover_data=['Keyword'],
+            title='Keyword Opportunity Matrix'
         )
         
         return fig
     
     @staticmethod
-    def create_market_share_chart(summary: Dict) -> go.Figure:
-        """Create market share visualization."""
+    def create_traffic_distribution_chart(client_df: pd.DataFrame, 
+                                        competitor_df: pd.DataFrame) -> go.Figure:
+        """Create traffic distribution comparison."""
         
-        labels = ['Client', 'Competitor']
-        values = [summary['market_share']['client'], 
-                 summary['market_share']['competitor']]
-        
-        fig = go.Figure(data=[go.Pie(
-            labels=labels,
-            values=values,
-            hole=0.4,
-            marker=dict(colors=['#1f77b4', '#ff7f0e'])
-        )])
-        
-        fig.update_layout(
-            title='Traffic Market Share',
-            height=400,
-            template='plotly_white'
-        )
-        
-        return fig
-    
-    @staticmethod
-    def create_funnel_gap_chart(content_gaps: Dict[str, pd.DataFrame]) -> go.Figure:
-        """Create content funnel gap visualization."""
-        
-        stages = ['TOFU', 'MOFU', 'BOFU']
-        client_counts = []
-        competitor_counts = []
-        
-        for stage in stages:
-            stage_lower = stage.lower()
-            if stage_lower in content_gaps:
-                client_count = len(content_gaps[stage_lower])
-                competitor_count = len(content_gaps[stage_lower])
-                client_counts.append(client_count)
-                competitor_counts.append(competitor_count)
+        # Group by position ranges
+        def categorize_position(pos):
+            if pos <= 3:
+                return 'Top 3'
+            elif pos <= 10:
+                return '4-10'
+            elif pos <= 20:
+                return '11-20'
             else:
-                client_counts.append(0)
-                competitor_counts.append(0)
+                return '21+'
+        
+        client_df['Position Range'] = client_df['Position'].apply(categorize_position)
+        competitor_df['Position Range'] = competitor_df['Position'].apply(categorize_position)
+        
+        client_traffic = client_df.groupby('Position Range')['Traffic'].sum()
+        competitor_traffic = competitor_df.groupby('Position Range')['Traffic'].sum()
+        
+        fig = go.Figure(data=[
+            go.Bar(name='Client', x=client_traffic.index, y=client_traffic.values),
+            go.Bar(name='Competitor', x=competitor_traffic.index, y=competitor_traffic.values)
+        ])
+        
+        fig.update_layout(
+            title='Traffic Distribution by Position Range',
+            xaxis_title='Position Range',
+            yaxis_title='Total Traffic',
+            barmode='group',
+            height=400
+        )
+        
+        return fig
+    
+    @staticmethod
+    def create_keyword_intent_analysis(client_df: pd.DataFrame, 
+                                     competitor_df: pd.DataFrame) -> go.Figure:
+        """Create keyword intent analysis visualization."""
+        
+        # Count keywords by intent
+        client_intents = client_df['Keyword Intents'].value_counts()
+        competitor_intents = competitor_df['Keyword Intents'].value_counts()
         
         fig = go.Figure()
         
         fig.add_trace(go.Bar(
             name='Client',
-            x=stages,
-            y=client_counts,
-            marker_color='#1f77b4'
+            x=client_intents.index,
+            y=client_intents.values,
+            marker_color='lightblue'
         ))
         
         fig.add_trace(go.Bar(
             name='Competitor',
-            x=stages,
-            y=competitor_counts,
-            marker_color='#ff7f0e'
+            x=competitor_intents.index,
+            y=competitor_intents.values,
+            marker_color='lightcoral'
         ))
         
         fig.update_layout(
-            title='Content Gap Analysis by Funnel Stage',
-            xaxis_title='Funnel Stage',
+            title='Keyword Intent Distribution',
+            xaxis_title='Intent Type',
             yaxis_title='Number of Keywords',
-            height=400,
-            template='plotly_white',
-            barmode='group'
+            barmode='group',
+            height=400
         )
         
         return fig
+
+
+def display_metrics_cards(summary):
+    """Display key metrics in card format."""
     
-    @staticmethod
-    def create_trend_analysis_chart(trending_df: pd.DataFrame) -> go.Figure:
-        """Create trending keywords visualization."""
-        if trending_df.empty:
-            return go.Figure()
-        
-        top_trending = trending_df.nlargest(10, 'Trend Score')
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Bar(
-            x=top_trending['Keyword'],
-            y=top_trending['Trend Score'],
-            marker_color='#2ca02c',
-            text=top_trending['Position Change'].astype(str) + ' positions',
-            textposition='auto'
-        ))
-        
-        fig.update_layout(
-            title='Top 10 Trending Keywords',
-            xaxis_title='Keyword',
-            yaxis_title='Trend Score',
-            height=400,
-            template='plotly_white',
-            xaxis_tickangle=-45
-        )
-        
-        return fig
+    col1, col2, col3, col4 = st.columns(4)
     
-    @staticmethod
-    def create_priority_heatmap(priority_df: pd.DataFrame) -> go.Figure:
-        """Create priority heatmap for opportunities."""
-        if priority_df.empty:
-            return go.Figure()
-        
-        # Create pivot table
-        pivot_data = priority_df.pivot_table(
-            values='Priority Score',
-            index='Type',
-            columns='Priority',
-            aggfunc='mean'
+    with col1:
+        st.metric(
+            label="Total Keywords",
+            value=summary.get('total_keywords', 0),
+            delta=summary.get('keyword_delta', 0)
         )
-        
-        fig = go.Figure(data=go.Heatmap(
-            z=pivot_data.values,
-            x=pivot_data.columns,
-            y=pivot_data.index,
-            colorscale='RdYlGn',
-            text=pivot_data.values.round(2),
-            texttemplate='%{text}',
-            textfont={"size": 12}
-        ))
-        
-        fig.update_layout(
-            title='Opportunity Priority Heatmap',
-            height=400,
-            template='plotly_white'
+    
+    with col2:
+        st.metric(
+            label="Total Traffic",
+            value=f"{summary.get('total_traffic', 0):,.0f}",
+            delta=summary.get('traffic_delta', 0)
         )
-        
-        return fig
+    
+    with col3:
+        st.metric(
+            label="Avg Position",
+            value=f"{summary.get('avg_position', 0):.1f}",
+            delta=summary.get('position_delta', 0)
+        )
+    
+    with col4:
+        st.metric(
+            label="Traffic Cost",
+            value=f"${summary.get('traffic_cost', 0):,.0f}",
+            delta=summary.get('cost_delta', 0)
+        )
+
+
+def create_competitive_analysis_table(client_df: pd.DataFrame, 
+                                    competitor_df: pd.DataFrame) -> pd.DataFrame:
+    """Create comprehensive competitive analysis table."""
+    
+    # Merge dataframes
+    merged_df = pd.merge(
+        client_df,
+        competitor_df,
+        on='Keyword',
+        suffixes=('_client', '_competitor'),
+        how='outer'
+    )
+    
+    # Calculate metrics
+    merged_df['Position_Diff'] = (
+        merged_df['Position_client'] - merged_df['Position_competitor']
+    )
+    merged_df['Traffic_Diff'] = (
+        merged_df['Traffic_client'] - merged_df['Traffic_competitor']
+    )
+    
+    # Categorize opportunities
+    def categorize_opportunity(row):
+        if pd.isna(row['Position_client']):
+            return 'New Opportunity'
+        elif row['Position_competitor'] < row['Position_client']:
+            if row['Position_client'] <= 10:
+                return 'Quick Win'
+            else:
+                return 'Long-term Opportunity'
+        else:
+            return 'Defensive'
+    
+    merged_df['Opportunity_Type'] = merged_df.apply(categorize_opportunity, axis=1)
+    
+    # Select relevant columns
+    result_df = merged_df[[
+        'Keyword',
+        'Position_client',
+        'Position_competitor',
+        'Search Volume_client',
+        'Keyword Difficulty_client',
+        'Traffic_client',
+        'Traffic_competitor',
+        'Position_Diff',
+        'Traffic_Diff',
+        'Opportunity_Type',
+        'Keyword Intents_client',
+        'SERP Features by Keyword_client'
+    ]].copy()
+    
+    result_df.columns = [
+        'Keyword',
+        'Client Position',
+        'Competitor Position',
+        'Search Volume',
+        'Keyword Difficulty',
+        'Client Traffic',
+        'Competitor Traffic',
+        'Position Difference',
+        'Traffic Difference',
+        'Opportunity Type',
+        'Intent',
+        'SERP Features'
+    ]
+    
+    return result_df

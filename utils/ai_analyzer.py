@@ -2,7 +2,6 @@ import openai
 import anthropic
 import google.generativeai as genai
 import streamlit as st
-import pandas as pd
 from typing import Dict, Any
 import toml
 
@@ -31,92 +30,124 @@ class AIAnalyzer:
         # OpenAI
         openai_key = api_keys.get("openai_api_key", "")
         if openai_key:
-            openai.api_key = openai_key
+            try:
+                self.openai_client = openai.OpenAI(api_key=openai_key)
+            except Exception as e:
+                st.error(f"OpenAI initialization error: {str(e)}")
+                self.openai_client = None
+        else:
+            self.openai_client = None
         
         # Anthropic
         anthropic_key = api_keys.get("anthropic_api_key", "")
         if anthropic_key:
-            self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
+            try:
+                self.anthropic_client = anthropic.Anthropic(api_key=anthropic_key)
+            except Exception as e:
+                st.error(f"Anthropic initialization error: {str(e)}")
+                self.anthropic_client = None
         else:
             self.anthropic_client = None
         
         # Gemini
         gemini_key = api_keys.get("gemini_api_key", "")
         if gemini_key:
-            genai.configure(api_key=gemini_key)
-            self.gemini_model = genai.GenerativeModel('gemini-pro')
+            try:
+                genai.configure(api_key=gemini_key)
+                self.gemini_model = genai.GenerativeModel('gemini-pro')
+            except Exception as e:
+                st.error(f"Gemini initialization error: {str(e)}")
+                self.gemini_model = None
         else:
             self.gemini_model = None
     
     def generate_insights(self, analysis_data: Dict[str, Any], 
                          model: str = "openai") -> str:
-        """Generate strategic insights using selected AI model."""
+        """Generate strategic insights using specified AI model."""
         
-        prompt = self._create_analysis_prompt(analysis_data)
+        prompt = self._build_analysis_prompt(analysis_data)
         
         try:
-            if model == "openai" and openai.api_key:
+            if model == "openai" and self.openai_client:
                 return self._openai_analysis(prompt)
             elif model == "anthropic" and self.anthropic_client:
                 return self._anthropic_analysis(prompt)
             elif model == "gemini" and self.gemini_model:
                 return self._gemini_analysis(prompt)
             else:
-                return "AI model not configured or available."
+                return "AI analysis unavailable - API key not configured"
                 
         except Exception as e:
             return f"Error generating insights: {str(e)}"
     
-    def _create_analysis_prompt(self, data: Dict[str, Any]) -> str:
-        """Create comprehensive analysis prompt."""
+    def _build_analysis_prompt(self, data: Dict[str, Any]) -> str:
+        """Build comprehensive prompt for AI analysis."""
         
         prompt = f"""
-        You are an expert SEO strategist analyzing keyword gap data. 
+        You are an expert SEO strategist conducting a comprehensive keyword gap analysis.
         
-        CLIENT PERFORMANCE:
-        - Total Keywords: {data['client_total_keywords']:,}
-        - Average Position: {data['client_avg_position']:.1f}
-        - Total Traffic: {data['client_total_traffic']:,}
-        - Traffic Value: ${data['client_traffic_cost']:,}
+        Based on the following data, provide strategic insights and actionable recommendations in **markdown format** with clear sections, bullet points, and specific keyword recommendations.
         
-        COMPETITOR PERFORMANCE:
-        - Total Keywords: {data['competitor_total_keywords']:,}
-        - Average Position: {data['competitor_avg_position']:.1f}
-        - Total Traffic: {data['competitor_total_traffic']:,}
-        - Traffic Value: ${data['competitor_traffic_cost']:,}
+        CLIENT OVERVIEW:
+        - Total Keywords: {data.get('client_total_keywords', 0)}
+        - Average Position: {data.get('client_avg_position', 0):.2f}
+        - Total Traffic: {data.get('client_total_traffic', 0):,.0f}
+        - Traffic Cost: ${data.get('client_traffic_cost', 0):,.2f}
         
-        QUICK WINS (Client ranks 6-10, Competitor ranks 1-5):
-        {len(data['quick_wins'])} opportunities identified
+        COMPETITOR OVERVIEW:
+        - Total Keywords: {data.get('competitor_total_keywords', 0)}
+        - Average Position: {data.get('competitor_avg_position', 0):.2f}
+        - Total Traffic: {data.get('competitor_total_traffic', 0):,.0f}
+        - Traffic Cost: ${data.get('competitor_traffic_cost', 0):,.2f}
         
-        STEAL OPPORTUNITIES (Competitor ranks 1-5, Client absent/poor):
-        {len(data['steal_opportunities'])} opportunities identified
+        KEY OPPORTUNITIES:
+        Quick Wins (Client ranks 6-10, competitor ranks 1-5): {len(data.get('quick_wins', []))}
+        Steal Opportunities (Client ranks 11+ or absent): {len(data.get('steal_opportunities', []))}
+        Defensive Keywords (Client ranks 1-5, competitor gaining): {len(data.get('defensive_keywords', []))}
         
-        DEFENSIVE KEYWORDS (Client ranks 1-5, Competitor close):
-        {len(data['defensive_keywords'])} keywords to defend
+        TOP KEYWORDS BY CATEGORY:
+        {self._format_keyword_lists(data)}
         
-        Provide a comprehensive strategic analysis including:
+        Provide a detailed analysis in **markdown format** with:
+        1. **Executive Summary** with key findings
+        2. **Immediate Action Items** (next 30 days) with specific keyword targets
+        3. **Medium-term Strategy** (next 3 months) with content calendar
+        4. **Long-term Investment Opportunities** with ROI projections
+        5. **Specific Content Strategies** for each keyword category
+        6. **Technical SEO Priorities** for each keyword group
+        7. **ROI Projections** with traffic and revenue estimates
         
-        1. **Executive Summary** - Key insights and market position
-        2. **Immediate Actions** - Top 5 priorities for next 30 days
-        3. **Medium-term Strategy** - 3-month content and optimization plan
-        4. **Long-term Investment** - 6-12 month strategic initiatives
-        5. **Resource Allocation** - Budget and team recommendations
-        6. **Risk Assessment** - Competitive threats and mitigation strategies
-        
-        Format as a professional report with clear sections and actionable recommendations.
+        Format with clear headers, bullet points, and specific keyword recommendations.
+        Include actual keyword examples from the data provided.
         """
         
         return prompt
     
+    def _format_keyword_lists(self, data: Dict[str, Any]) -> str:
+        """Format keyword lists for the prompt."""
+        formatted = ""
+        
+        for category, keywords in data.items():
+            if isinstance(keywords, list) and keywords and isinstance(keywords[0], dict):
+                formatted += f"\n### {category.upper().replace('_', ' ')}:\n"
+                for kw in keywords[:10]:  # Top 10 per category
+                    formatted += f"- **{kw.get('Keyword', 'N/A')}** "
+                    formatted += f"(Volume: {kw.get('Search Volume', 0):,}, "
+                    formatted += f"Difficulty: {kw.get('Keyword Difficulty', 0)}, "
+                    formatted += f"Client: {kw.get('Client Position', 'N/A')}, "
+                    formatted += f"Competitor: {kw.get('Competitor Position', 'N/A')})\n"
+        
+        return formatted
+    
     def _openai_analysis(self, prompt: str) -> str:
-        """Generate analysis using OpenAI GPT-4."""
-        response = openai.ChatCompletion.create(
+        """Generate analysis using OpenAI."""
+        response = self.openai_client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are an expert SEO strategist."},
+                {"role": "system", "content": "You are an expert SEO strategist. Format your response in markdown with clear sections, bullet points, and specific keyword recommendations."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=2000,
+            max_tokens=3000,
             temperature=0.7
         )
         return response.choices[0].message.content
@@ -125,7 +156,7 @@ class AIAnalyzer:
         """Generate analysis using Anthropic Claude."""
         response = self.anthropic_client.messages.create(
             model="claude-3-sonnet-20240229",
-            max_tokens=2000,
+            max_tokens=3000,
             temperature=0.7,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -139,9 +170,18 @@ class AIAnalyzer:
     def is_configured(self, model: str) -> bool:
         """Check if specified model is configured."""
         if model == "openai":
-            return bool(openai.api_key)
+            return self.openai_client is not None
         elif model == "anthropic":
             return self.anthropic_client is not None
         elif model == "gemini":
             return self.gemini_model is not None
         return False
+    
+    def format_insights_for_display(self, insights: str) -> str:
+        """Format insights for better display in Streamlit."""
+        # Already in markdown format from AI
+        return insights
+    
+    def export_insights_markdown(self, insights: str, filename: str = "ai_strategic_insights.md") -> bytes:
+        """Export insights as markdown file."""
+        return insights.encode('utf-8')

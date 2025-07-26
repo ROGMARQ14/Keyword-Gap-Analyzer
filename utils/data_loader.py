@@ -1,9 +1,10 @@
 import pandas as pd
 import streamlit as st
-from typing import Tuple, Optional
+from typing import Optional
+
 
 class DataLoader:
-    """Handles loading and validation of CSV files for keyword analysis."""
+    """Handles loading and validation of CSV and Excel files for keyword analysis."""
     
     REQUIRED_COLUMNS = [
         'Keyword', 'Position', 'Previous position', 'Search Volume', 
@@ -13,13 +14,20 @@ class DataLoader:
     ]
     
     @staticmethod
-    def load_csv(file: st.uploaded_file_manager.UploadedFile) -> Optional[pd.DataFrame]:
-        """Load and validate CSV file."""
+    def load_file(file) -> Optional[pd.DataFrame]:
+        """Load and validate CSV or Excel file."""
         try:
             if file is None:
                 return None
                 
-            df = pd.read_csv(file)
+            # Determine file type and load accordingly
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file)
+            elif file.name.endswith(('.xlsx', '.xls')):
+                df = pd.read_excel(file)
+            else:
+                st.error("Unsupported file format. Please upload CSV or Excel files.")
+                return None
             
             # Validate required columns
             missing_cols = set(DataLoader.REQUIRED_COLUMNS) - set(df.columns)
@@ -42,9 +50,11 @@ class DataLoader:
         df = df.copy()
         
         # Convert numeric columns
-        numeric_cols = ['Position', 'Previous position', 'Search Volume', 
-                       'Keyword Difficulty', 'CPC', 'Traffic', 'Traffic (%)', 
-                       'Traffic Cost', 'Competition', 'Number of Results']
+        numeric_cols = [
+            'Position', 'Previous position', 'Search Volume', 
+            'Keyword Difficulty', 'CPC', 'Traffic', 'Traffic (%)', 
+            'Traffic Cost', 'Competition', 'Number of Results'
+        ]
         
         for col in numeric_cols:
             if col in df.columns:
@@ -57,7 +67,9 @@ class DataLoader:
         
         # Create additional calculated fields
         df['Position Change'] = df['Previous position'] - df['Position']
-        df['Opportunity Score'] = (df['Search Volume'] * df['Traffic (%)']) / (df['Keyword Difficulty'] + 1)
+        df['Opportunity Score'] = (
+            df['Search Volume'] * df['Traffic (%)']
+        ) / (df['Keyword Difficulty'] + 1)
         df['Competitive Threat'] = df['Position'] * df['Traffic Cost']
         
         return df

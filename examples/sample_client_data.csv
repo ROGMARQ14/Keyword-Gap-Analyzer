@@ -1,21 +1,11 @@
 Keyword,Position,Previous position,Search Volume,Keyword Difficulty,CPC,URL,Traffic,Traffic (%),Traffic Cost,Competition,Number of Results,Trends,Timestamp,SERP Features by Keyword,Keyword Intents,Position Type
-best seo tools,3,5,18100,65,12.5,https://example.com/seo-tools,5420,30.2,67750,0.89,45600000,stable,2024-07-25,"Featured snippet,People also ask",Commercial,Regular
-seo software comparison,7,8,2900,58,8.75,https://example.com/seo-comparison,870,30.0,25375,0.76,23400000,stable,2024-07-25,"People also ask",Commercial,Regular
-keyword research tool,2,3,9900,72,15.2,https://example.com/keyword-tool,3960,40.0,150480,0.92,67800000,stable,2024-07-25,"Featured snippet",Commercial,Regular
-backlink checker,12,15,8100,68,11.3,https://example.com/backlink-checker,810,10.0,91530,0.85,34500000,stable,2024-07-25,"Featured snippet",Commercial,Regular
-content marketing strategy,1,1,4400,45,6.8,https://example.com/content-strategy,2200,50.0,29920,0.71,89000000,stable,2024-07-25,"Featured snippet",Informational,Regular
-technical seo audit,5,7,3600,62,9.4,https://example.com/seo-audit,1080,30.0,33840,0.79,23400000,stable,2024-07-25,"People also ask",Commercial,Regular
-local seo services,8,6,6600,71,18.5,https://example.com/local-seo,1320,20.0,122100,0.88,45600000,stable,2024-07-25,"Local pack",Commercial,Regular
-link building strategies,4,4,5400,52,7.2,https://example.com/link-building,2160,40.0,38880,0.74,67800000,stable,2024-07-25,"Featured snippet",Informational,Regular
-on page seo checklist,6,9,8100,48,5.5,https://example.com/on-page-seo,2430,30.0,44550,0.68,45600000,stable,2024-07-25,"Featured snippet",Informational,Regular
-seo trends 2024,9,12,3600,41,4.2,https://example.com/seo-trends,1080,30.0,15120,0.65,23400000,trending up,2024-07-25,"People also ask",Informational,Regular
-google algorithm updates,11,10,2900,55,8.9,https://example.com/algorithm-updates,580,20.0,25810,0.77,12300000,stable,2024-07-25,"Top stories",Informational,Regular
-seo for ecommerce,3,2,4400,59,12.8,https://example.com/ecommerce-seo,1760,40.0,56320,0.83,34500000,stable,2024-07-25,"Featured snippet",Commercial,Regular
-voice search optimization,15,18,1600,67,9.1,https://example.com/voice-search,160,10.0,14560,0.81,12300000,trending up,2024-07-25,"People also ask",Informational,Regular
-mobile seo best practices,2,1,2200,43,6.5,https://example.com/mobile-seo,1100,50.0,14300,0.69,56700000,stable,2024-07-25,"Featured snippet",Informational,Regular
-core web vitals,1,1,8100,38,4.8,https://example.com/core-web-vitals,4860,60.0,38880,0.62,45600000,stable,2024-07-25,"Featured snippet",Informational,Regular
-page speed optimization,5,6,5400,51,7.9,https://example.com/page-speed,2160,40.0,42660,0.75,67800000,stable,2024-07-25,"Featured snippet",Informational,Regular
-schema markup guide,7,8,2900,49,5.1,https://example.com/schema-markup,870,30.0,14790,0.73,23400000,stable,2024-07-25,"Featured snippet",Informational,Regular
-seo case studies,4,3,1600,44,8.3,https://example.com/case-studies,640,40.0,13280,0.7,34500000,stable,2024-07-25,"People also ask",Commercial,Regular
-digital marketing tools,6,5,18100,61,11.2,https://example.com/marketing-tools,5430,30.0,202720,0.84,89000000,stable,2024-07-25,"Featured snippet",Commercial,Regular
-content optimization tools,9,11,2400,56,9.7,https://example.com/content-tools,720,30.0,23280,0.78,45600000,stable,2024-07-25,"People also ask",Commercial,Regular
+best seo tools,3,5,18100,65,12.5,https://example.com/seo-tools,5430,30,67875,0.8,45600000,Stable,2024-07-25,Featured snippet,Commercial,Regular
+keyword research tool,7,9,14800,58,8.9,https://example.com/keyword-tool,2072,14,13172,0.75,39200000,Increasing,2024-07-25,People also ask,Commercial,Regular
+content marketing strategy,12,15,9900,72,15.2,https://example.com/content-strategy,990,10,15048,0.85,28700000,Stable,2024-07-25,Featured snippet,Informational,Regular
+backlink checker,2,2,22100,78,11.3,https://example.com/backlink-checker,11050,50,24973,0.9,34100000,Increasing,2024-07-25,Sitelinks,Commercial,Regular
+seo audit,5,7,12100,69,18.5,https://example.com/seo-audit,3630,30,22405,0.82,29800000,Stable,2024-07-25,Featured snippet,Commercial,Regular
+digital marketing course,8,6,18500,45,25.8,https://example.com/digital-marketing-course,2775,15,47790,0.7,52300000,Increasing,2024-07-25,Video,Commercial,Regular
+local seo services,1,1,6700,52,45.2,https://example.com/local-seo,5360,80,30284,0.65,18900000,Stable,2024-07-25,Local pack,Commercial,Regular
+technical seo checklist,15,18,5400,61,9.8,https://example.com/technical-seo,540,10,5292,0.78,12500000,Stable,2024-07-25,Featured snippet,Informational,Regular
+link building strategies,4,3,12800,75,14.6,https://example.com/link-building,5120,40,18688,0.88,45600000,Increasing,2024-07-25,People also ask,Commercial,Regular
+on page seo,6,8,16200,68,12.4,https://example.com/on-page-seo,3240,20,20088,0.8,39800000,Stable,2024-07-25,Featured snippet,Informational,Regular
